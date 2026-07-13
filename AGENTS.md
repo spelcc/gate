@@ -27,12 +27,15 @@ myMCP/
 │   ├── test_oauth.py                 # OAuth unit tests
 │   ├── test_mcp_endpoint.py          # Live endpoint integration tests
 │   ├── test_conversation_logging.py  # Conversation logging tests
+│   ├── test_discover_ngrok_url.py     # Local ngrok API parsing tests
 │   ├── test_run_command_conversation.py
 │   ├── test_start_services.py        # Startup and platform path tests
 │   └── test_tool_registry.py         # Tool configuration tests
 ├── docs/
 │   ├── installation.md               # Cross-platform installation and usage
 │   └── assets/                       # Lean WebP documentation screenshots
+├── scripts/
+│   └── discover_ngrok_url.py         # Read public URL from local ngrok API
 ├── start_services.py                 # Cross-platform gateway supervisor
 ├── run.sh                            # macOS/Linux launcher
 ├── run.ps1                           # Windows launcher

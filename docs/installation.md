@@ -2,6 +2,149 @@
 
 Cross-platform guide for macOS, Linux, and Windows. The local gateway listens on port `8761`. ngrok exposes this port over HTTPS. ChatGPT connects to `/mcp` and handles the OAuth flow automatically.
 
+## Agent quickstart
+
+> Agent detected. Good news: no CAPTCHA. Bad news: OAuth consent still requires a human with a pulse.
+
+Read only this section for an automated setup. The full human guide starts below.
+
+### Inputs
+
+- `PLATFORM`: `macos`, `linux`, or `windows`.
+- Repository working directory.
+- Python 3.10+, Node.js 18+, and ngrok available in `PATH`.
+- An ngrok authtoken already stored locally.
+- Human access to ChatGPT developer mode for final plugin creation.
+
+Never request or print the ngrok authtoken. Ask the human to run the local authentication command when needed.
+
+### Automated steps
+
+1. Read `AGENTS.md`. Detect the operating system. Run only commands for that platform.
+2. Install dependencies from the canonical file.
+
+   macOS/Linux:
+
+   ```bash
+   python3 -m venv .venv
+   .venv/bin/python -m pip install -r requirements.txt
+   ```
+
+   Windows PowerShell:
+
+   ```powershell
+   py -3 -m venv .venv
+   .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+   ```
+
+3. Verify ngrok authentication.
+
+   ```text
+   ngrok config check
+   ```
+
+   If this fails because no authtoken exists, stop at **Human checkpoint H1**.
+
+4. Start exactly one ngrok tunnel. Keep its PID/process handle.
+
+   macOS/Linux:
+
+   ```bash
+   ngrok http 8761 > /tmp/mcprelay-ngrok.log 2>&1 &
+   NGROK_PID=$!
+   ```
+
+   Windows PowerShell:
+
+   ```powershell
+   $Ngrok = Start-Process ngrok -ArgumentList "http 8761" -PassThru
+   ```
+
+5. Discover the public URL through the local ngrok API. Do not parse terminal output.
+
+   macOS/Linux:
+
+   ```bash
+   MCP_BASE_URL="$(.venv/bin/python scripts/discover_ngrok_url.py)"
+   export MCP_BASE_URL
+   export OAUTH_ISSUER="$MCP_BASE_URL/oauth"
+   export LOCAL_OAUTH_ISSUER="$MCP_BASE_URL/oauth"
+   export OAUTH_TOKEN_TTL_SECONDS=31536000
+   ```
+
+   Windows PowerShell:
+
+   ```powershell
+   $env:MCP_BASE_URL = & .\.venv\Scripts\python.exe scripts\discover_ngrok_url.py
+   $env:OAUTH_ISSUER = "$env:MCP_BASE_URL/oauth"
+   $env:LOCAL_OAUTH_ISSUER = "$env:MCP_BASE_URL/oauth"
+   $env:OAUTH_TOKEN_TTL_SECONDS = "31536000"
+   ```
+
+6. Start the gateway only. Do **not** call `run.sh` or `run.ps1` in this flow; those launchers start their own ngrok process.
+
+   macOS/Linux:
+
+   ```bash
+   .venv/bin/python start_services.py > /tmp/mcprelay-gateway.log 2>&1 &
+   GATEWAY_PID=$!
+   ```
+
+   Windows PowerShell:
+
+   ```powershell
+   $Gateway = Start-Process .\.venv\Scripts\python.exe -ArgumentList "start_services.py" -PassThru
+   ```
+
+7. Validate both endpoints.
+
+   macOS/Linux:
+
+   ```bash
+   curl -fsS http://localhost:8761/oauth/health
+   curl -fsS "$MCP_BASE_URL/oauth/.well-known/oauth-authorization-server"
+   ```
+
+   Windows PowerShell:
+
+   ```powershell
+   Invoke-RestMethod http://localhost:8761/oauth/health
+   Invoke-RestMethod "$env:MCP_BASE_URL/oauth/.well-known/oauth-authorization-server"
+   ```
+
+### Human checkpoints
+
+- **H1 — ngrok authentication:** human runs `ngrok config add-authtoken ...` locally. Token never enters chat, logs, or Git.
+- **H2 — OS permissions:** human grants screen recording/accessibility permissions when GUI tools are required.
+- **H3 — ChatGPT:** human enables developer mode, creates `mcp dl` with `$MCP_BASE_URL/mcp`, accepts the risk checkbox, and completes OAuth consent.
+
+### Postconditions
+
+- Local health returns JSON containing `"ok": true`.
+- Public OAuth metadata is reachable.
+- Metadata `issuer` equals `$MCP_BASE_URL/oauth`.
+- Exactly one ngrok process/tunnel exists.
+- ChatGPT plugin URL equals `$MCP_BASE_URL/mcp`.
+- No token, private key, OAuth state, log, or local `.env` file is staged in Git.
+
+### Cleanup after an automated test
+
+macOS/Linux:
+
+```bash
+kill "$GATEWAY_PID" "$NGROK_PID"
+```
+
+Windows PowerShell:
+
+```powershell
+Stop-Process -Id $Gateway.Id, $Ngrok.Id
+```
+
+---
+
+# Human installation and usage
+
 ## 1. Requirements
 
 - GitHub account with repository access.
@@ -94,9 +237,17 @@ ngrok version
 
 Official documentation: [ngrok installation](https://ngrok.com/docs/getting-started/) and [`add-authtoken` command](https://ngrok.com/docs/agent/cli/#ngrok-config-add-authtoken). The ngrok agent supports macOS, Linux, and Windows.
 
-## 5. Open the tunnel once
+## 5. Start the single ngrok tunnel
 
-Terminal 1:
+Keep this terminal open. The gateway starts separately in step 7.
+
+macOS terminal 1:
+
+```bash
+caffeinate -i ngrok http 8761
+```
+
+Linux terminal 1 or Windows PowerShell terminal 1:
 
 ```bash
 ngrok http 8761
@@ -109,6 +260,8 @@ https://example.ngrok-free.dev
 ```
 
 On the free plan, this URL may change after a restart. When it changes, update `config/.env` and the ChatGPT MCP plugin.
+
+Do not start `run.sh` or `run.ps1` while this tunnel is running. Both launchers start their own ngrok process.
 
 ## 6. Configure the gateway
 
@@ -147,33 +300,41 @@ Git ignores `config/.env`. Never add the ngrok token to it.
 
 ## 7. Start the server
 
-### macOS
+Start the gateway only. Leave the ngrok terminal from step 5 running.
+
+### macOS and Linux, terminal 2
+
+```bash
+source .venv/bin/activate
+python start_services.py
+```
+
+### Windows PowerShell, terminal 2
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+python start_services.py
+```
+
+Keep this terminal open while using `mcp dl` in ChatGPT. Copy the HTTPS URL displayed by ngrok.
+
+### Optional all-in-one launchers for later sessions
+
+Stop any manually started ngrok process first. These launchers start gateway + one new ngrok tunnel:
+
+macOS/Linux interactive mode:
 
 ```bash
 ./run.sh
 ```
 
-This starts the gateway and ngrok. When available, `run.sh` automatically uses macOS `caffeinate` to prevent sleep. `Ctrl+C` stops both.
-
-### Linux
-
-```bash
-./run.sh
-```
-
-`run.sh` works without `caffeinate` on Linux. Sleep prevention is optional; see the next section.
-
-### Windows PowerShell
+Windows PowerShell interactive mode:
 
 ```powershell
 .\run.ps1
 ```
 
-This starts the gateway and ngrok. `Ctrl+C` stops the launcher and its process tree.
-
-Keep this terminal open while using `mcp dl` in ChatGPT. Copy the HTTPS URL displayed by ngrok.
-
-Background mode is available on macOS and Linux:
+macOS/Linux background mode:
 
 ```bash
 ./run.sh start
@@ -181,31 +342,7 @@ Background mode is available on macOS and Linux:
 ./run.sh stop
 ```
 
-Manual alternative on macOS and Linux:
-
-```bash
-source .venv/bin/activate
-python3 start_services.py
-```
-
-Then, in a second terminal:
-
-```bash
-ngrok http 8761
-```
-
-Manual alternative on Windows, terminal 1:
-
-```powershell
-.\.venv\Scripts\Activate.ps1
-python start_services.py
-```
-
-Windows terminal 2:
-
-```powershell
-ngrok http 8761
-```
+After an all-in-one restart, verify the public URL still matches `config/.env`. If it changed, update the configuration and ChatGPT plugin before use.
 
 ## 8. Prevent the computer from sleeping
 
@@ -213,7 +350,7 @@ Sleep prevention matters because sleep stops the gateway, ngrok tunnel, and GUI 
 
 ### macOS: `caffeinate`
 
-`run.sh` detects and uses the built-in `caffeinate` command automatically. No extra installation is required.
+The primary macOS command in step 5 uses built-in `caffeinate`. `run.sh` also detects it automatically. No extra installation is required.
 
 ### Linux: `systemd-inhibit`
 
