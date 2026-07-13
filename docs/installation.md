@@ -134,7 +134,7 @@ OAUTH_ISSUER=https://example.ngrok-free.dev/oauth
 LOCAL_OAUTH_ISSUER=https://example.ngrok-free.dev/oauth
 OAUTH_AUDIENCE=https://mcp.local
 MCP_AUDIENCE=https://mcp.local
-OAUTH_TOKEN_TTL_SECONDS=3600
+OAUTH_TOKEN_TTL_SECONDS=31536000
 OAUTH_AUTO_REGISTER_AUTH_CLIENTS=true
 ENABLE_OAUTH=true
 ```
@@ -142,6 +142,8 @@ ENABLE_OAUTH=true
 All three public URL values must use the exact same ngrok domain. Do not append `/mcp` to `MCP_BASE_URL`.
 
 Git ignores `config/.env`. Never add the ngrok token to it.
+
+`OAUTH_TOKEN_TTL_SECONDS=31536000` keeps the access token valid for one year. MCPRelay does not issue refresh tokens yet, so a one-hour token may expire during long scans or require frequent reconnection. Treat the generated access token as a long-lived secret.
 
 ## 7. Start the server
 
