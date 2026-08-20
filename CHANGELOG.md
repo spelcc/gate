@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.38](https://github.com/spelcc/gate/compare/v0.1.37...v0.1.38) (2026-08-20)
+
+
+### Fixed
+
+* prevent iOS input focus zoom ([#105](https://github.com/spelcc/gate/issues/105)) ([9d38796](https://github.com/spelcc/gate/commit/9d3879660ba0ac1857b8bd1ddaee55a787201094))
+
 ## [0.1.37](https://github.com/spelcc/gate/compare/v0.1.36...v0.1.37) (2026-08-19)
 
 
